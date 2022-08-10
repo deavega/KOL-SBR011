@@ -1,0 +1,755 @@
+---
+title: "Tinjauan atas Pelaksanaan Pemasaran SBR011 melalui Key Opinion Leader (KOL)"
+author: "Dea Avega Editya"
+date: "6/17/2022"
+output:
+  github_document: default
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    theme: darkly
+    number_sections: false
+  word_document:
+    toc: no
+  pdf_document2: default
+  bookdown::pdf_document2:
+    toc: no
+    number_sections: no
+  pdf_document: default
+subtitle: dengan pendekatan data analytics
+affiliation: Direktorat Surat Utang Negara, Kementerian Keuangan
+organization: Direktorat Surat Utang Negara, Kementerian Keuangan RI
+mainfont: Cabin
+fontsize: 12pt
+linestretch: 1.5
+geometry: left=3cm,right=3cm,top=2cm,bottom=2cm
+documentclass: article
+classoption: a4paper
+bibliography: biblio.bib
+header-includes: \usepackage{float}
+---
+
+
+ 
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, results='hide', warning=FALSE, fig.pos = "H", fig.align = "center")
+
+
+
+# 
+#
+```
+
+```{r echo=FALSE}
+library(bookdown)
+library(dplyr)
+library(tidyverse)
+library(readr)
+library(readxl)
+library(janitor)
+library(stringr)
+library(plotly)
+library(ggtextures)
+library(magick)
+library(MASS)
+library(kableExtra)
+library(tidytext)
+library(syuzhet)
+library(parallel)
+library(slam)
+library(textdata)
+
+```
+
+
+
+
+```{r }
+form <- read.csv("sosialisasi_sbr011.csv", sep = ",") %>% mutate(total = gsub(".*?([0-9]+).*", "\\1", Jumlah.peserta))
+
+# koreksi kak Ita
+105 -> form$Jumlah.peserta[13]
+
+form_ed <- form %>% 
+  clean_names() %>% 
+  mutate(jumlah_peserta = as.numeric(str_replace_all(jumlah_peserta,"[^0-9///' ]", ""))) %>% 
+  dplyr::select(-total)
+
+raw_kol <- read.csv("sosialisasi_kol.csv", sep = ",") %>% clean_names()
+
+kol <- raw_kol %>% 
+  dplyr::select(nama_mitra_distribusi, bentuk_kegiatan, cap_waktu, narasumber_kol,jumlah_like, jumlah_komentar)
+
+sos <- form_ed %>% 
+  dplyr::select(nama_mitra_distribusi, bentuk_kegiatan, cap_waktu, pembicara_1, pembicara_2, jumlah_peserta) %>% 
+  mutate(jumlah_peserta = as.numeric(jumlah_peserta))
+
+# check jumlah peserta < 100
+# sosialisasi Bank BNI perlu diremove
+form_all <- full_join(sos, kol)
+check <- form_all %>% 
+  group_by(nama_mitra_distribusi) %>% 
+  filter(n() > 1)
+
+form_complete <- form_all %>%
+  mutate(jumlah_peserta = str_replace_na(jumlah_peserta, 0)) %>% 
+  filter(jumlah_peserta != 45)
+
+form_complete <- form_complete %>% 
+  mutate(total = jumlah_peserta)
+
+form_complete$total[21:28] <- form_complete$jumlah_like[21:28]
+
+
+form_complete <- form_complete %>% 
+  mutate(total = as.numeric(total))
+
+form_complete %>%   
+  dplyr::select(nama_mitra_distribusi, total) %>% 
+  summarise(tot = sum(total))
+
+n_midis_sos <- form_complete %>% 
+  filter(jumlah_peserta > 0) %>% count()
+
+n_midis_kol <- form_complete %>% 
+  filter(jumlah_like > 0) %>% count()
+
+n_like_kol <- form_complete %>% 
+  dplyr::select(jumlah_like) %>% drop_na() %>% 
+  mutate(jumlah_like = as.integer(jumlah_like)) %>% 
+  sum()
+
+n_peserta <- form_complete %>% 
+  mutate(jumlah_peserta = as.integer(jumlah_peserta)) %>% 
+  dplyr::select(jumlah_peserta) %>% sum()
+
+sum(form_complete$total)
+
+# library(writexl)
+# 
+# writexl::write_xlsx(form_complete, "sosialisasi_sbr011_kirim.xlsx")
+```
+
+```{r }
+
+kol_new <- read_xlsx(path = "form_kol.xlsx", sheet = 1) %>% as_tibble() %>% 
+  mutate(engage_rate = as.numeric(engage_rate),like_rate = as.numeric(like_rate), comment_rate = as.numeric(comment_rate), avg_post_day = as.numeric(avg_post_day), avg_post_week = as.numeric(avg_post_week), avg_post_month = as.numeric(avg_post_month) 
+         )
+```
+
+```{r ,fig.cap="Average Liked Post per KOL"}
+avatar <- c("images/mel.png", "images/lol.png", "images/sam.png", "images/vin.png", "images/sig.png", "images/dew.png", "images/mor.png", "images/fay.png", "images/chor.png", "images/fel.png")
+
+kol_new$avatar <- avatar
+
+```
+
+
+```{r }
+
+# comparing like of sbr post
+# kol_new %>% select(narasumber_kol, sbr_like, avg_like_post, media_type) %>% drop_na() %>%
+#   ggplot(aes(x = reorder(narasumber_kol, log(avg_like_post)), y = avg_like_post, fill = factor(media_type)))+
+#   geom_col()+xlab("Influencer")+
+#   coord_flip()+
+#   theme(legend.position="none")
+
+# p1 <- plotly_build(p)
+# p1$x$data[[1]]$name <- "Instagram"
+# p1$x$data[[2]]$name <- "TikTok"
+# 
+# p1
+
+```
+
+```{r}
+
+raw_text <- read.csv("scrap_ig.csv") %>% clean_names()
+
+text <- raw_text %>% dplyr::select(owner_username, timestamp, text, position)
+
+text_ord <- text %>% group_by(position)
+
+text_ord$kol <- "vina" 
+
+text_ord$kol[23:30] <- "morgan"
+
+text_ord$kol[31:40] <- "sigi"
+
+
+```
+
+## Latar Belakang
+
+Paper ini disusun untuk melakukan tinjauan umum atas kegiatan pemasaran produk investasi Savings Bonds Ritel (SBR) seri SBR011 yang dilakukan oleh **Key Opinion Leaders** (*influencers*). Seluruh worksheet, dataset beserta skrip kode dalam file Rmarkdown dapat diakses publik pada repository Git: https://github.com/deavega/KOL-SBR011. Proses analisis dalam paper ini menggunakan software R beserta beberapa packages yang diperlukan.  
+
+Hasil tinjauan atas kegiatan KOL ini diharapkan dapat memberikan gambaran mengenai efektivitas KOL dalam membantu Pemerintah memasarkan dan terutama mengedukasi masyarakat mengenai produk SBR011. Analisis yang dilakukan meliputi tingkat engagement dan antusiasme audiens KOL serta sentimen umum dari audiens tersebut. Selanjutnya ditinjau juga pengelompokan dari KOL berdasarkan beberapa fitur/karakteristik masing-masing KOL. Seluruh workflow dalam paper ini dapat direproduksi kembali oleh peneliti, akademisi maupun mahasiswa yang memiliki minat terhadap bidang analisis data terutama yang berkaitan dengan produk investasi surat berharga negara. 
+
+### Kegiatan Pemasaran SBR011
+
+Surat Utang Negara (SUN) Ritel seri Saving Bonds kembali ditawarkan kepada masyarakat warga negara Indonesia oleh Pemerintah melalui Direktorat Surat Utang Negara (Dit.SUN) Kementerian Keuangan. Pada periode 25 Mei-16 Juni 2022, masyarakat dapat melakukan pemesanan untuk instrumen Saving Bonds seri SBR011. Seperti halnya pada penerbitan ORI21 pada bulan Maret lalu, pemesanan SBR011 dapat dilakukan melalui 28 Mitra Distribusi yang telah mendapatkan otorisasi dari Pemerintah untuk membantu penjualan instrumen obligasi tersebut (daftar lengkap Midis SBR011 dapat dilihat pada *landing page* Kemenkeu: https://www.kemenkeu.go.id/single-page/savings-bond-ritel/).  
+
+Dalam melakukan pemasaran SBR011, Dit. SUN memberikan dua opsi metode yang dapat dipilih oleh Midis sesuai preferensinya masing-masing. Metode pertama adalah menggunakan kegiatan berbentuk sosialisasi, edukasi maupun kegiatan yang sifatnya lebih terbatas kepada kalangan internal Midis semisal temu nasabah.
+Metode kedua yang digunakan dan baru pertama kali diterapkan pada penerbitan SBR011 yaitu menggunakan Key Opinion Leader (KOL). KOL mengandalkan tokoh publik yang dipandang memiliki kekuatan basis massa yang ditandai dengan jumlah follower yang besar. Penggunaan KOL bertujuan untuk membangun *"trusted relationship"* khususnya terhadap instrumen SBR011 yang sedang ditawarkan oleh Pemerintah (sumber: dokumen internal Direktorat Surat Utang Negara Kemenkeu).
+
+Jumlah mitra distribusi yang melaksanakan kegiatan sosialisasi virtual sebanyak `r n_midis_sos`, adapun midis yang melaksanakan marketing melalui konten Key Opinion Leader (KOL) sebanyak `r n_midis_kol` midis. Total audiens sebanyak `r as.integer(sum(form_complete$total))` yang terdiri dari `r n_peserta` jumlah peserta sosialisasi virtual dan `r n_like_kol` jumlah like dari konten KOL.
+
+### Definisi Key Opinion Leader (KOL)  
+
+Menurut influencermarketinghub, KOL dideskripsikan sebagai "*person or organization who has expert product knowledge and influence in a respective field. They are trusted by relevant interest groups and have significant effects on consumer behavior*" [@Geyser]. Lebih lanjut, KOL dapat dianggap sama dengan *influencer*, kecuali bahwa KOL dapat menggunakan media *online* maupun *offline* sedangkan influencer umumnya menggunakan media *online* saja. Untuk tujuan penulisan artikel ini, kata KOL dan influencer akan dianggap memiliki makna yang sama sehingga digunakan secara bergantian. 
+
+Dalam rangka membantu Midis dalam memilih KOL untuk pemasaran SBR011, Dit. SUN merekomendasikan empat tipe KOL yang dapat di-*endorse* yaitu **Student, Professional, Enterpreneur dan Housewives**. Untuk tipe Student, KOL merupakan figur yang digemari kalangan anak muda dan berstatus sebagai pelajar dan mahasiswa. Untuk tipe Professional, figur merupakan pekerja profesional yang berjiwa muda dan biasa membagikan konten seputar profesinya. Tipe Enterpreneur merupakan kelompok KOL yang memiliki bisnis, berjiwa muda dan membagikan kisah inspiratif seputar bisnis yang digeluti. Adapun untuk tipe Housewive, KOL adalah para wanita yang menikmati perannya sebagai ibu rumah tangga dan cukup aktif membagikan kegiatannya sehari-hari. Seluruh tipe tersebut tentunya harus *concern* terhadap dunia investasi, memiliki sentimen positif yang menginspirasi serta tidak pernah mengunggah konten yang berbau SARA, pornografi maupun pornoaksi.    
+
+Berdasarkan jumlah followernya, KOL dapat dibagi menjadi lima kelompok yaitu Nano (memiliki rentang jumlah follower 1000-10.000), Micro (10.000-50.000), Mid-Tier (50.000-500.000), Macro (500.000-1 juta), dan Mega (> 1 juta) [sumber: mediakix.com sebagaimana dikutip dalam @Geyser]. 
+
+### Penggunaan KOL dalam Marketing SBR011
+
+Untuk keperluan marketing SBR011, Midis dapat memilih KOL yang berasal minimal dari kategori Mikro yang memiliki *engagement rate* tinggi. Hal ini sejalan dengan argumen dari Geyser bahwa influencer online yang dianggap sukses biasanya merupakan kategori Micro dan Mid-Tier [-@Geyser]. Terdapat hal lain yang dipersyaratkan dalam panduan pemilihan KOL yaitu influencer harus memiliki karakteristik yang mendekati target investor SBR011 serta memiliki *engaged-followers* yang berkaitan dengan konten seputar investasi. Konten yang diunggah pun harus dapat menyampaikan pesan gerakan kolektif untuk membantu pemulihan ekonomi dan pembangunan nasional. Sementara gaya penyampaian yang direkomendasikan ialah *storytelling* dan persuasif dalam menjelaskan detail proses dan konsisten memasukkan unsur *value* dalam kontennya.   
+
+### Influencer KOL SBR011
+
+Berdasarkan kriteria yang ditetapkan tersebut, terdapat sepuluh (10) KOL yang di-*endorse* oleh Midis untuk membantu melakukan kampanye marketing SBR011 selama periode penawaran. Dalam melakukan tinjauan atas pelaksanaan KOL, penulis mengumpulkan data profil dari masing-masing KOL dengan informasi yang diperoleh dari platform analisa.io [@Analisa]. Informasi profil tersebut merupakan *snapshot* data per tanggal 20 Juni 2022 yang meliputi; jumlah follower, jumlah post, jumlah like, rata-rata like per post yang diunggah. 
+
+Data tersebut kemudian dilengkapi dengan tema konten dan tipe audiens yang ditentukan oleh penulis setelah melakukan observasi terhadap unggahan tiap KOL. Secara garis besar, tema unggahan konten KOL terbagi menjadi dua yaitu keuangan dan umum, adapun tipe audiens oleh penulis dibagi menjadi muda dan sangat muda. 
+
+Seluruh influencer yang menggunakan platform TikTok dalam kampanye SBR011 (Fayza, Chornella dan Felicia) dianggap memiliki audiens yang berusia sangat muda, sesuai dengan statistik pengguna platform tersebut yang mayoritas berada di rentang usia 13-24 tahun [@Dsouza]. Adapun Morgan Oey merupakan satu-satunya influencer berplatform instagram yang diasosiasikan oleh penulis dengan audiens berusia sangat muda mengingat sosok yang merupakan mantan vokalis band Smash tersebut cukup populer dan digandrungi oleh remaja. 
+
+Pada akhirnya, penulis juga menambahkan data hasil observasi jumlah like pada konten SBR011 yang diunggah tiap KOL untuk mengukur antusiasme follower terhadap produk SBR011 yang ditawarkan. Profil KOL SBR011 secara umum ditampilkan pada tabel \@ref(tab:table):
+
+```{r}
+
+kol_show <- raw_kol %>% dplyr::select(narasumber_kol,kategori_narasumber_kol,jumlah_follower, media_sosial_yang_digunakan)
+
+x <- tibble(narasumber_kol = c("Chornella", "Felicia"), kategori_narasumber_kol= c("Professional", "Student"), jumlah_follower = c("Mid-Tier (50k - 500k)", "Mid-Tier (50k - 500k)"), media_sosial_yang_digunakan =  c("Tik-Tok","Tik-Tok"))
+
+kol_display <- rbind(kol_show, x)
+
+kol_display$narasumber_kol[8] <- "Fayza"
+kol_display$narasumber_kol[1] <- "Melvin Mumpuni"
+kol_display$narasumber_kol[2] <- "Lolita Setyawati"
+kol_display$narasumber_kol[6] <- "Dewi Andarini"
+
+kol_display$media_sosial_yang_digunakan[5] <- "Instagram"
+
+kol_display$tema <- c("keuangan", "keuangan", "keuangan", "keuangan", "umum", "keuangan", "umum", "umum", "keuangan", "keuangan")
+
+kol_display$audiens <- c("muda", "muda", "muda", "muda", "muda", "muda", "sangat muda", "sangat muda", "sangat muda", "sangat muda")
+
+colnames(kol_display) = c("KOL", "Tipe", "Jumlah Follower", "Media Sosial", "Tema", "Audiens") 
+```
+
+```{r table, results = 'asis'}
+kol_display %>% dplyr::select(-`Media Sosial`) %>% kable(caption = "Profil KOL SBR011") %>% kableExtra::kable_styling(latex_options = c("striped","HOLD_position"), stripe_color="green", font_size = 9, stripe_index = 0)
+```
+
+
+Sejalan dengan tujuan dari kegiatan marketing SBR011 melalui KOL, Pemerintah ingin menjangkau audiens yang lebih luas melalui bantuan dari influencer yang di-endorse oleh Midis. Oleh karenanya, influencer yang dipilih merupakan figur yang dianggap memiliki tingkat engagement tinggi. Menurut sebuah artikel dari www.sproutsocial.com, tingkat engagement dapat dijelaskan sebagai suatu metrik yang digunakan untuk mengukur seberapa aktif follower terhadap konten yang diunggah [@Sprout]. Tingkat *engagement* dapat membantu sebuah perusahaan dalam memperkirakan besaran Return on Investment (ROI) dalam sebuah kampanye *digital advertising* yang dilakukan perusahaan tersebut [-@Sprout]. Tingginya tingkat engagement dapat membuat suatu produk serta brand yang diiklankan menjadi lebih dikenal, memicu iklan dari mulut ke mulut yang lebih masif, meningkatkan citra serta meningkatkan kualitas hubungan dengan pengguna produk [@Sprout]. 
+
+Adapun faktor-faktor yang umumnya diperhitungkan dalam perhitungan tingkat *engagement* pada sebuah konten media sosial, semisal Instagram, yaitu jumlah like dan komentar pada konten [-@Sprout]. Sejalan dengan penjelasan tersebut, penulis menggunakan angka rata-rata jumlah like per post dari KOL untuk mengetahui tingkat *engagement* secara umum dari masing-masing KOL. 
+Berdasarkan data yang dihimpun, seluruh KOL dapat dianggap memiliki tingkat *engagement* yang cukup tinggi karena memiliki rata-rata like per post di atas 100. Hal ini telah sesuai dengan ketentuan dalam panduan pemilihan KOL yang mensyaratkan tingkat *engagement* KOL yang tinggi. Lebih lanjut, gambaran perbandingan tingkat *engagement* antar KOL ditampilkan pada grafik \@ref(fig:liked).  
+
+Grafik \@ref(fig:liked) menggunakan satuan log sebab jumlah rata-rata like per post salah satu KOL yaitu Vina Muliana sangat ekstrim tingginya jika dibandingkan dengan KOL lain. Setelah ditelusuri lebih jauh, Vina Muliana merupakan salah satu *influencer* papan atas yang masuk dalam daftar Forbes 30 Under 30 untuk kategori Media, Marketing dan Advertising. Dengan menggunakan skala log, komparasi tingkat *engagement* antar KOL yang memiliki perbedaan ekstrim dapat dilihat secara lebih jelas. 
+
+```{r liked, fig.cap ="Rata-rata Like per Post KOL", eval = TRUE, fig.width = 6, fig.height = 4, fig.pos="H"}
+
+kol_new %>% dplyr::select(narasumber_kol, sbr_like, avg_like_post, media_type) %>% drop_na() %>%
+  ggplot(aes(x = reorder(narasumber_kol, log(avg_like_post)), y = log(avg_like_post)))+geom_col(fill = "darkgreen", alpha = 0.5)+
+  geom_isotype_col(image = avatar,
+    img_height = grid::unit(1, "null"), img_width = NULL,
+    ncol = 1, nrow = 1, hjust = 1, vjust = 0.5, width = 1
+  )+
+  xlab("Influencer")+ylab("Like per Post (Log)")+
+  coord_flip()+
+  theme(legend.position= "right")+
+  ggtitle("Rata-rata Like per Post")+
+  theme_minimal()
+
+```
+
+```{r}
+
+```
+
+## Analisis Tingkat Engagement dan Antusiasme
+### *Engagement* dan Antusiasme Audiens atas Konten SBR011  
+  
+Berdasarkan grafik \@ref(fig:engage), dapat dilihat bahwa konten SBR011 yang diunggah oleh Vina Muliana merupakan konten yang paling menyedot jumlah like yang menjadi indikator tingginya tingkat *engagement* dari followernya. Hal ini tidaklah mengejutkan mengingat KOL tersebut juga memiliki jumlah *follower* paling banyak dibandingkan KOL SBR011 lainnya. Posisi kedua dan ketiga diisi oleh Morgan Oey dan Melvin.   
+
+Perbandingan yang ditampilkan pada grafik \@ref(fig:engage) kembali menggunakan skala log agar tingkat *engagement* masing-masing KOL dapat lebih mudah diperbandingkan. Apabila menggunakan skala asli, jumlah *engagement (like)* konten SBR011 yang diperoleh oleh Vina Muliana tampak sangat superior dibandingkan jumlah keseluruhan *engagement* yang dikumpulkan oleh KOL lainnya. Hal tersebut menandakan bahwa kampanye SBR011 sejatinya sudah dapat menjangkau audiens secara luas hanya dengan menggunakan jasa karyawan BUMN tersebut. 
+  
+```{r engage,fig.cap= "Tingkat Engagement terhadap Unggahan Konten SBR011", fig.width = 6, fig.height = 4, fig.pos="H"}
+
+kol_new %>% dplyr::select(narasumber_kol, sbr_like, media_type) %>% drop_na() %>%
+  ggplot(aes(x = reorder(narasumber_kol, log(sbr_like)), y = log(sbr_like), fill = factor(media_type)))+
+  geom_isotype_col(image = avatar,
+    img_height = grid::unit(1, "null"), img_width = NULL,
+    ncol = 1, nrow = 1, hjust = 1, vjust = 0.5
+  )+
+   xlab("Influencer")+
+  ylab("jumlah like (log)")+
+  coord_flip()+
+  guides(fill=guide_legend(title="Social Media"))+
+  scale_fill_discrete(labels = c("instagram", "tiktok"))+
+  ggtitle("")
+ 
+```
+
+
+Disisi lain, apabila ditinjau dari segi antusiasme follower KOL dengan parameter pengukuran yaitu **banyaknya jumlah like konten SBR011 dibandingkan rata-rata jumlah like per post dari tiap KOL**, maka KOL yang memiliki tingkat antusiasme follower tertinggi adalah Chornella Tri Pratama, dimana pengikut influencer tersebut memberikan like pada konten SBR yang diunggah hampir mencapai 1,25 kali lipat lebih banyak (125%) daripada rata-rata like yang biasa diperoleh oleh influencer tersebut (grafik \@ref(fig:folent)). Sementara itu, pengikut Vina Muliana tampak kurang begitu antusias dengan konten SBR011 yang diunggah terlihat dari penurunan jumlah like yang diterima ketika mengunggah konten SBR011 sebesar hampir 40% lebih rendah dari rata-rata jumlah like yang biasa diterima. 
+
+
+
+
+
+```{r folent, fig.cap="Tingkat Antusiasme Audiens per KOL", echo = FALSE, fig.width = 6, fig.height = 4, fig.pos="H"}
+kol_new %>% dplyr::select(narasumber_kol, sbr_like, avg_like_post, media_type) %>% drop_na() %>%
+  ggplot(aes(x = reorder(narasumber_kol, log(sbr_like/avg_like_post)), y = sbr_like/avg_like_post, fill = factor(media_type), image = avatar))+
+  geom_isotype_col(
+    img_height = grid::unit(1, "null"), img_width = NULL,
+    ncol = 1, nrow = 1, hjust = 1, vjust = 0.5
+  )+
+  xlab("Influencer")+ylab("Skala antusiasme")+
+  geom_hline(yintercept = c(0.5, 1), linetype = "dashed", alpha = 0.5)+
+  coord_flip()+
+  theme(legend.position= "right")+
+  guides(fill=guide_legend(title="Social Media"))+
+  scale_fill_discrete(labels = c("instagram", "tiktok"))+
+  ggtitle("")
+
+```
+
+Dalam blog pribadinya (https://desty.page/chornellatp), Chornella menjelaskan profilnya sebagai seorang buruh sekaligus investor generasi Z [-@Chor]. Status pekerjaannya sebagai buruh pabrik ini yang cukup membedakan sosok ini dari dua KOL lain yang sama-sama menggunakan TikTok pada kampanye SBR011 yaitu Felicia dan Fayza.  
+
+Dengan asumsi bahwa pengikut Chornella memiliki jenis pekerjaan yang serupa serta melihat tingginya antusiasme mereka terhadap unggahan konten SBR011, pemerintah sejatinya dapat mulai menjajaki peluang untuk menawarkan produk investasi retailnya kepada segmen pekerja kelas buruh terutama yang berusia muda, dimana sependek pengetahuan penulis jenis profesi *blue collar* tersebut belum pernah mendapatkan perhatian khusus dalam kampanye kegiatan pemasaran SBN Ritel baik konvensional maupun yang berbasis syariah. 
+
+Berdasarkan publikasi BPS tentang Keadaan Angkatan Kerja di Indonesia Februari 2022, jumlah angkatan muda (usia 15-24 tahun) yang bekerja sebagai buruh/karyawan berjumlah sekitar 8,9 juta orang [@BPS]. Angka tersebut tentu menunjukkan bahwa kategori pekerjaan tersebut merupakan pasar yang cukup potensial dan secara profil usia  termasuk target utama penjualan SBN Ritel yakni investor berusia muda dan telah memiliki Kartu Tanda Penduduk. 
+
+Hal lain yang menarik dicermati adalah terkait format dari unggahan konten SBR011. KOL yang mengunggah *campaign* dalam format video cenderung memiliki tingkat antusiasme yang tinggi dibandingkan dengan KOL yang menggunggah foto statis. Hal ini dapat dilihat pada grafik  \@ref(fig:format) di bawah ini.
+
+```{r format, fig.cap="Tingkat Antusiasme Audiens berdasarkan Format Konten", echo = FALSE, fig.width = 6, fig.height = 4, fig.pos="H"}
+kol_new %>% dplyr::select(narasumber_kol, sbr_like, avg_like_post, media_type) %>% drop_na() %>% mutate(format = c(1, 1, 1, 2, 1, 1, 1, 2, 2, 2)) %>% 
+  ggplot(aes(x = reorder(narasumber_kol, log(sbr_like/avg_like_post)), y = sbr_like/avg_like_post, fill = factor(format), image = avatar))+
+  geom_isotype_col(
+    img_height = grid::unit(1, "null"), img_width = NULL,
+    ncol = 1, nrow = 1, hjust = 1, vjust = 0.5
+  )+
+  xlab("Influencer")+ylab("Skala antusiasme")+
+  geom_hline(yintercept = c(0.5, 1), linetype = "dashed", alpha = 0.5)+
+  coord_flip()+
+  theme(legend.position= "right")+
+  guides(fill=guide_legend(title="Format Posting"))+
+  scale_fill_discrete(labels = c("Foto", "Video"))+
+  ggtitle("")
+```
+
+
+```{r, echo = FALSE, eval = FALSE}
+# library("instaR")
+# my_oauth <- instaOAuth(app_id = '1191721091612558', app_secret='6099e676944050edf3f550a5bdcf6acc', scope = c("basic", "public_content"))
+
+#kategorisasi KOL
+form_kol <- form_complete %>% dplyr::select(narasumber_kol, jumlah_like, jumlah_komentar) %>% drop_na() %>% mutate(jml_fol = c(96200, 13900, 109000, 488000, 227000, 11600, 375000, 104200), jml_post = c(561, 1472, 992, 363, 3055, 1176, 1847, 88), media_type = c(1, 1, 1, 1, 1, 1, 1, 2))
+
+form_kol%>%
+column_to_rownames('narasumber_kol')%>% #see comment below
+prcomp(scale.=TRUE) -> pcaout
+
+summary(pcaout)
+
+screeplot(pcaout,type = 'l')
+
+biplot(pcaout,scale=1)
+
+# biplot(pcaout)
+
+# Multi Dimensional Scalling
+
+form_kol <- form_kol %>% as_tibble()
+
+form_kol %>% dplyr::select(-narasumber_kol) -> metric
+
+metric %>% scale%>% #standardise
+dist->dd
+
+
+#Assign ceral names to dist object
+rownames(form_kol)->attributes(dd)$Labels
+
+#Compute classical MDS
+cmds<-cmdscale(dd,eig = T)
+
+#Store representation in data frame
+cmds$points%>%
+as.data.frame()%>%
+rownames_to_column(var = 'influencer name')->df
+
+ggplot(df,aes(x=V1,y=V2,label=`influencer name`))+
+geom_text(size=2)
+
+cmds$GOF
+
+
+df<-add_column(df, influencer=form_kol$narasumber_kol)
+
+ggplot(df,aes(x=V1,y=V2, label= influencer))+
+geom_text(size=2)
+
+
+# library(writexl)
+
+# writexl::write_xlsx(form_kol, "form_kol.xlsx")
+# writexl::write_xlsx(kol_new, "form_kol.xlsx")
+```
+
+### Pengelompokan KOL Berdasarkan Kesamaan Fitur  
+  
+Bagian ini mengulas mengenai kesamaan fitur yang dimiliki oleh para influencer SBR011. Metode yang digunakan untuk melakukan pengelompokan menggunakan Principal Component Analysis (PCA) untuk meringkas multivariabel yang menjelaskan karakteristik masing-masing KOL. Terdapat tujuh variabel yang digunakan dalam proses analisis PCA ini, yaitu tipe audiens, tema, jumlah like konten SBR011, jumlah komentar pada konten SBR011, jumlah follower, jumlah post, tipe post (video dan gambar) dan rata-rata like per post (tingkat *engagement*). 
+
+```{r pca, fig.cap="Pengelompokan KOL berdasarkan PCA", echo = FALSE, fig.keep='high', fig.pos="H"}
+
+# , -media_type, -post_type,, -sbr_like, -sbr_komen,  -avg_like_post, -audiens,-enthusiasm,
+
+kol_new <- kol_new %>% 
+  mutate(enthusiasm = sbr_like/avg_like_post)
+
+kol_new %>% 
+  dplyr::select(-avatar, -like_rate, -engage_rate, -comment_rate, -tot_like, -avg_post_day, -avg_post_week, -avg_post_month, -gender, -endorser, -following, -avg_engage_post,-avg_comment_post,  -sbr_like, -sbr_komen, -media_type) %>%
+  column_to_rownames('narasumber_kol')%>% #see comment below
+prcomp(scale.=TRUE) -> pcaout
+
+summary(pcaout)
+
+# screeplot(pcaout, type = 'l')
+biplot(pcaout, main='PCA Results', cex=c(.8, .8))
+
+
+```
+
+```{r, results='asis'}
+pcaout[2] %>%  kable() %>% kableExtra::kable_styling(latex_options = c("striped", "HOLD_position"), stripe_color="green", font_size = 9, stripe_index = 0)
+```
+
+
+Berdasarkan grafik \@ref(fig:pca) yang menggunakan komponen PC1 dan PC2, secara umum KOL SBR011 dapat terbagi menjadi tiga kelompok. Kelompok pertama hanya terdiri dari Vina Muliana, dengan karakteristik tingkat *engagement*, jumlah follower dan jumlah unggahan (post) yang besar.
+Kelompok kedua terdiri dari 6 influencer yang memiliki karakteristik hampir serupa, yaitu Melvin, Lolita, Morgan, Samuel, Dewi dan Sigi. Keenam influencer tersebut memiliki kesamaan terutama dari jumlah unggahan konten (post) yang besar, namun memiliki antusiasme follower yang tidak terlalu tinggi terhadap unggahan konten SBR011.
+Kelompok ketiga diwakili oleh influencer yang memiliki kesamaan dari sisi tipe audiens yaitu kelompok usia muda, serta antusias follower terhadap konten SBR011 yang cukup tinggi, terutama Chornella. Ketiga KOL ini juga sama-sama menggunakan TikTok sebagai media sosial untuk mengunggah konten SBR011.
+
+### Analisis Sentimen Audiens terhadap Konten SBR011
+
+Untuk mendapatkan gambaran yang lebih menyeluruh mengenai penggunaan KOL pada pemasaran SBR011, selain dilakukan analisis terhadap tingkat engagement dan antusiasme audiens perlu dilakukan juga analisis sentimen terhadap *feedback* yang diberikan oleh audiens tersebut. 
+
+Tahap awal yang dilakukan dalam proses ini adalah mendapatkan dataset komentar *followers* dari KOL SBR011. Untuk memperoleh dataset dimaksud penulis menggunakan platform apify.com yang melakukan *scrapping* terhadap seluruh komentar pada unggahan konten SBR011. Terdapat keterbatasan pada prosedur perolehan dataset ini dikarenakan komentar yang diambil hanya berasal dari KOL yang menggunakan media sosial Instagram. Adapun komentar yang berasal dari platform TikTok tidak dapat diperoleh karena aturan privasi data yang lebih ketat.   
+
+
+Dari beberapa KOL yang menggunakan media sosial Instagram, diperoleh 3 nama yang memiliki komentar *followers* yang cukup banyak sehingga dapat digunakan untuk keperluan analisis sentimen. Ketiga nama tersebut adalah Vina Muliana, Morgan Oey dan Sigi Wimala. Dari beberapa komentar yang muncul, tidak semua mengomentari hal terkait investasi atau SBR011. Namun demikian, kata-kata tersebut tetap dimasukkan ke dalam dataset yang akan dianalisis lebih lanjut untuk melihat gambaran sentimen secara umum.
+
+Proses penyiapan dataset kemudian dilakukan dengan kegiatan pembersihan (*cleansing*) data dengan menyaring karakter selain huruf (*string*), diantaranya angka, simbol serta tanda baca. Selanjutnya, dilakukan penghapusan kata-kata yang tidak membentuk makna bahasa natural, seperti kata sambung dan tunjuk menggunakan daftar *stopwords* bahasa Indonesia dan bahasa Inggris yang terdapat dalam database NLTK dan ISO pada library Stopwords. Stopwords bahasa Inggris digunakan sebab beberapa komentar tersebut menggunakan kata dalam bahasa Inggris.   
+
+Tahap selanjutnya dalam proses analisis sentimen ini adalah melakukan “stemming” atau “lemmatization”, yaitu mengubah suatu kata menjadi bentuk dasarnya untuk memudahkan dalam menganalisis kata yang unik. Daftar 10 kata unik yang paling sering muncul dalam komentar audiens KOL SBR011 dapat dilihat pada tabel \@ref(tab:words). Pengubahan kata ini menggunakan model training bahasa Indonesia dari library udpipe. Setelah dilakukan proses stemming, langkah berikutnya adalah memastikan bahwa kata unik yang muncul tersebut telah berformat baku. Proses ini memerlukan adanya penyesuaian terhadap kata-kata yang tidak baku, semisal mengubah nyidam menjadi mengidam dan ngelamar menjadi melamar.
+
+```{r}
+## extract text
+
+library(stopwords)
+library(tm)
+library(tidytext)
+
+
+clean_text_ord <- text_ord %>% 
+  mutate(text=str_replace_all(text, "https\\S*", "")) %>% # urls
+  mutate(text=str_replace_all(text, "@\\S*", "")) %>% # mentions
+  mutate(text=str_replace_all(text, "[\r\n\t]", "")) %>% # dividers
+  mutate(text=removeNumbers(text)) %>% # numbers
+  mutate(text=removePunctuation(text)) %>%  # punctuation
+  mutate(text=str_squish(text))
+
+stpwIso <- stopwords::stopwords("id", source = "stopwords-iso")
+stpwNtlk = stopwords::stopwords(language = "id", source = "nltk")
+stpwNtlkEn = stopwords::stopwords(language = "en", source = "nltk")
+
+# icon_text <- iconv(clean_text_ord$text, from = "latin1", to = "ascii", sub = "byte")
+# 
+# icon_match <- emojis_matching(icon_text$text, matchto, description)
+
+`unnest_text_ord` <- clean_text_ord %>%
+  dplyr::select(text) %>%
+  unnest_tokens(token, text, to_lower = F)
+
+filtered_text = unnest_text_ord %>%
+  filter(!token %in% c(stpwNtlk)) %>%
+  filter(!token %in% c(stpwNtlkEn))
+
+# filtered_text %>%
+#   head(10)
+
+
+####
+
+
+
+```
+
+
+
+```{r}
+library("udpipe")
+#DOWNLOAD PRETRAINED MODEL UDPIPE
+# udpipe_model <- udpipe::udpipe_download_model('indonesian') # Uncomment on first run
+# saveRDS(udpipe_model, "udpipe_mod.rds")
+dl_model <- readRDS("udpipe_mod.rds")
+# "indonesian-gsd-ud-2.5-191206.udpipe"
+theModel <- udpipe_load_model(dl_model)
+
+# STEMMINGmyTweets = tweetsAnn
+udpipe_text <- as_tibble(udpipe_annotate(theModel, filtered_text$token)) %>% 
+  dplyr::select(token, lemma) %>% 
+  filter(!is.na(lemma))
+  
+
+```
+
+
+```{r}
+#WORD COUNT
+
+count_udpipe_text = udpipe_text %>%
+  mutate(lemma=tolower(lemma)) %>% 
+  filter(!lemma %in% c(stpwNtlk)) %>% 
+  filter(!lemma %in% c(stpwNtlkEn))
+
+```
+
+```{r}
+
+ 
+
+alpha_udpipe_text <- count_udpipe_text %>% 
+  filter(str_detect(lemma, "[^A-Za-z, ]+", negate = T))
+
+remover_words <- read_csv("id_stopwords.txt", col_names = FALSE) %>%
+  as_tibble()
+
+add_words <- c("gw", "yg", "ya", "mas", "gak", "klo", "aja", "nya","nih", "kh", "kk", "jg", "km", "kak", "dh", "ad", "lu", "dn", "bang", "vin", "ganteng", "si",'sih','abang','morgan', "ni", "bi","brp","kakazi",'ka','yo','ko', "yah", "vina",'via', "min",'ttg', 'pake','kah', 'tula', 'apk') %>% 
+  as_tibble()
+
+remover_indo <- full_join(remover_words, add_words, by = c("X1" = "value"))
+
+alpha_udpipe_text %>% 
+unnest_tokens(input = lemma, output = word) %>%
+ filter(!word %in% remover_indo$X1) -> alpha_text_df
+  
+##write.csv(alpha_text_df, "alpha_text_df.csv")
+alpha_updated <- read.table("alpha_text_df.csv") %>% slice(-1) %>% as_tibble() 
+
+alpha_updated <- alpha_updated %>%  mutate("token" =  tolower(V2), "word" = tolower(V4)) %>%
+  dplyr::select(token, word)
+
+
+alpha_updated %>% 
+unnest_tokens(input = word, output = text) %>%
+ filter(!text %in% remover_indo$X1) -> alpha_text_clean
+
+### set value to words
+# alpha_sentiment <- alpha_text_clean %>% 
+#   mutate(value = case_when(text %in% sentimen_negatif ~ -1, 
+#                            text %in% sentimen_positif ~ 1, TRUE ~ 0))
+
+# get_sentiment(char_v = alpha_text_clean$text, lexicon = 'afinn', language = 'indonesian')
+
+
+# cl = makeCluster(detectCores()-1)
+# clusterExport(cl = cl, c("get_sentiment", "get_sent_values", "get_nrc_sentiment", 
+#                          "get_nrc_values", "parLapply"))
+# get_afinn_sentiment(alpha_text_clean$text, language = "indonesian", cl = cl)
+
+english_dictio <- read.csv("NRC-Emotion-Lexicon-Wordlevel-v0.92.txt", sep="\t", header=F)
+
+```
+
+
+```{r , words, results='as is'}
+alpha_sentiment_unique <- alpha_text_clean %>% 
+  group_by(text) %>% summarise(n = n()) %>% arrange(desc(n))
+
+kable(alpha_sentiment_unique %>% head(n = 10), caption = "Daftar 10 Kata Unik Terbanyak", format = 'html', vline = "|") %>% 
+  kable_styling(latex_options = c("striped","HOLD_position"),bootstrap_options = 'bordered', stripe_color="green", font_size = 10, stripe_index = 0)
+
+```
+
+
+Setelah memastikan bahwa setiap kata sudah berbentuk baku, kemudian kumpulan kata tersebut disaring kembali untuk membuang kata-kata yang tidak memberikan makna inti, semisal kata sambung (dan, atau, adalah) dan kata tunjuk (ini dan itu). Dataset yang telah dibersihkan dapat dibawa ke dalam tahapan analisis selanjutnya yaitu pemberian skoring sentimen. 
+
+
+Skoring dilakukan terhadap setiap kata pada dataset dengan memanfaatkan library NRC yang membagi kategori sentimen menjadi 10 tipe yaitu; **anger, anticipation, disgust, fear, joy, negative, positive, sadness, surprise dan trust**. Dikarenakan library NRC hanya tersedia untuk kata dalam bahasa Inggris, perlu dilakukan translasi kata dalam dataset dari bahasa Indonesia menjadi bahasa Inggris. Proses alih bahasa dataset tersebut menggunakan library googleLanguageR. Hasil terjemahan kembali direviu untuk memastikan tidak terjadi perubahan makna dari kata aslinya di bahasa Indonesia. Bagan alur proses sentimen analisis secara lengkap sebagaimana ditunjukkan pada gambar \@ref(fig:flow)  
+
+
+```{r, flow, fig.cap='Flow Diagram Analisis Sentimen Audiens SBR011', fig.align='center', out.width='100%', dev='png', dpi = 300}
+# 
+
+
+library(DiagrammeR)
+
+DiagrammeR::grViz("digraph{ 
+
+ graph [layout = dot, rankdir = TB]
+  node [shape = rounded]
+
+  rec5 [label = '5. Pembakuan Kata']
+  rec6 [label = '6. Translasi ke Bahasa Inggris']
+  rec7 [label = '7. Skoring Sentimen']
+  
+  # edge definitions with the node IDs
+  rec5 -> rec6 -> rec7 
+  {rank = same; rec5; rec6; rec7}
+ 
+   
+  graph [layout = dot, rankdir = TB]
+  node [shape = rectangle]        
+  rec1 [label = '1. Pengumpulan Dataset']
+  rec2 [label = '2. Cleansing Data']
+  rec3 [label =  '3. Filter Stopwords']
+  rec4 [label = '4. Stemming/Lemmatization']
+
+  # edge definitions with the node IDs
+  rec1 -> rec2 -> rec3 -> rec4 -> rec5
+ {rank = same; rec1; rec2; rec3; }
+ 
+   }",
+
+  width = 800, height = 200)
+
+
+
+```
+
+
+
+```{r}
+### Translating to english
+
+library(googleLanguageR)
+# gl_auth("API service google json required")
+
+# translated_text <- googleLanguageR::gl_translate(alpha_sentiment_unique$text, target = 'en',source = 'id', format = 'text')
+
+#write.table(translated_text, "translated.csv")
+
+translated <- read.table("translated.csv") %>% mutate(translated = tolower(translatedText))
+
+cl = makeCluster(detectCores()-1)
+clusterExport(cl = cl, c("get_sentiment", "get_sent_values", "get_nrc_sentiment", 
+                         "get_nrc_values", "parLapply"))
+
+sentimentNRC <- get_nrc_sentiment(translated$translated, cl = cl)
+
+stopCluster(cl)
+
+## Sentiment labelling
+
+sentimentNRC = cbind(translated, sentimentNRC)
+
+sentimentNRC %>% 
+  filter(rowSums(sentimentNRC[,-c(1,2, 3)]) > 0) %>% 
+  head()
+
+
+```
+
+
+
+
+
+Kata-kata yang sudah dalam bentuk bahasa Inggris tersebut pada akhirnya dapat diberikan skoring sentimen dengan hasil tampak pada plot \@ref(fig:sentimen). **Dari hasil analisis sentimen diketahui bahwa secara umum mayoritas audiens memiliki respon positif (*positive*) terhadap produk SBR011 yang dikampanyekan. Rasa kepercayaan (*trust*), kegembiraan (*joy*) dan antisipasi (*anticipation*) juga turut mendominasi sentimen audiens pemasaran SBR011 oleh KOL.** 
+
+```{r, sentimen, fig.cap="Sentimen Analisis dari Komentar Audiens KOL SBR011 yang Menggunakan Instagram", dpi= 300, out.width='60%', results='hold'}
+# SENTIMENTS FREQUENCY
+
+sentimentScores = data.frame(colSums(sentimentNRC %>% 
+                                       filter(translated!="general") %>% 
+                                       dplyr::select(-translatedText,-text,-translated)))
+
+names(sentimentScores) = "Score"
+
+sentimentScores = cbind("sentiment"= rownames(sentimentScores), sentimentScores)
+
+sentimentScores = sentimentScores
+
+ggplot(data=sentimentScores,aes(x=sentiment,y=Score))+
+  geom_bar(aes(fill=sentiment),stat = "identity")+
+  xlab("Sentimen")+ylab("Skor")+theme_minimal()+
+  ggtitle("Analisis Sentimen dari Komentar Followers KOL IG", "Berdasarkan Skor Sentimen NRC")+
+  theme(axis.text.x = element_text(angle=45),
+        legend.position = "none")
+  
+
+```
+
+
+
+
+
+## Kesimpulan
+### Efektivitas Penggunaan KOL pada Penjualan SBR011
+Meskipun nilai realisasi penjualan yang dihubungkan secara langsung dengan endorsement KOL SBR011 tidak dapat diketahui, tingkat engagement dan antusiasme audiens bisa menjadi penunjuk/*proxy* terhadap keefektivitasan program tersebut. Secara umum, tampak bahwa *engagement* audiens hanya berfokus kepada figur yang memang merupakan *top influencer* seperti Vina Muliana (Forbes 30 Under 30). Namun demikian, beberapa sosok yang cukup tenar dan dikenal masyarakat luas semisal Morgan Oey terlihat belum dapat memberikan kontribusi yang signifikan dan sebesar apa yang dilakukan oleh Vina Muliana. Hal ini bisa berarti dua hal:  
+1. KOL yang populer belum tentu memiliki audiens yang memiliki minat terhadap dunia investasi;  
+2. KOL yang memiliki audiens dengan ketertarikan terhadap dunia investasi, belum tentu dapat mengarahkan perhatian audiensnya terhadap SBR011.
+
+Berdasarkan analisis PCA terkait pengelompokkan KOL sebagaimana gambar \@ref(fig:pca), Vina Muliana tampaknya memiliki kombinasi fitur yang membuatnya berbeda dari kelompok KOL lain yakni popularitas dan kemampuan untuk membuat konten edukasi menarik dan menyedot perhatian.
+
+Meskipun demikian, jika ditinjau dari rata-rata tingkat engagement yang biasa diperoleh oleh masing-masing KOL terlihat bahwa engagement konten SBR011 yang dibuat oleh Vina mengalami penurunan sekitar 40%  dari konten biasanya. Hal tersebut menunjukkan bahwa tingkat antusiasme audiens KOL tersebut terhadap konten SBR011 secara umum jauh lebih rendah dibandingkan dengan konten-konten lain yang diunggahnya.  
+
+Hal berbeda ditunjukkan oleh audiens dari KOL Chornella T.P. Meskipun tingkat engagement tidak sebesar pada KOL Vina Muliana, namun antusiasme audiens Chornella terhadap konten SBR011 jauh lebih tinggi bila dibandingkan rata-rata antusias mereka terhadap konten yang diunggah influencer yang juga pekerja pabrik tersebut.
+
+Apabila ditinjau dari format konten, konten SBR011 yang diunggah dalam format video lebih cenderung mampu menarik perhatian dibandingkan dengan konten berbentuk foto. Hal tersebut sebagaimana tercermin pada grafik \@ref(fig:format).
+
+Selanjutnya, berdasarkan sentimen feedback audiens terhadap kampanye SBR011, dapat disimpulkan bahwa secara umum kegiatan pemasaran yang dilakukan oleh KOL telah cukup baik dengan adanya sentimen *positif, trust* dan *joy* yang mendominasi sentimen audiens.
+
+### Implikasi terhadap Kebijakan dan Limitasi
+
+Berdasarkan analisis yang dilakukan terdapat setidaknya dua hal yang dapat dipertimbangkan dalam pengambilan kebijakan kampanye pemasaran SBR011.  
+Pertama, antusiasme yang tinggi dari audiens KOL muda Chornella T.P. memberikan indikasi awal bahwa kemungkinan terdapat ceruk target segment yang dapat disasar oleh Pemerintah untuk kampanye penjualan SBR011. Mengingat bahwa KOL ini mengidentifikasi dirinya sebagai pekerja buruh sekaligus investor. Dengan asumsi bahwa audiensnya merupakan masyarakat dengan karakteristik serupa, Pemerintah dapat mempertimbangkan untuk menjangkau potensial investor muda dari kalangan *blue collar*.  
+Kedua, melihat tingkat antusiasme audiens KOL yang mengunggah konten marketing dalam bentuk video (Vina, Chornella, Fayza dan Felicia) cenderung lebih baik ketimbang KOL yang menggunggah foto, pembuatan konten yang diunggah oleh KOL dapat diarahkan dalam format video alih-alih konten foto agar dapat menghasilkan engagement yang tinggi.  
+
+Tinjauan dalam paper ini memiliki keterbatasan yaitu hanya melihat keefektivitasan KOL dalam memasarkan penjualan SBR011 melalui indikator tidak langsung (*proxy*) meliputi tingkat *engagement*, antusiasmme dan sentimen audiens. Untuk melihat dampak keuangan (*return on investment*) dari penggunaan KOL terhadap penjualan SBR011, pemerintah maupun Mitra Distribusi kiranya perlu mempertimbangkan untuk menyediakan kode referensi/*referral* yang dapat diinput oleh calon investor pada saat pemesanan, sehingga dapat diperoleh informasi mengenai sumber KOL yang menggerakkan pemesanan tersebut.
+
+
+```{r , eval = FALSE}
+# MDS
+
+kol_new <- kol_new %>% as_tibble() %>% filter(narasumber_kol != "Vina Muliana")
+
+kol_new %>% 
+  dplyr::select(-media_type, -like_rate, -engage_rate, -comment_rate, -tot_like, -avg_post_day, -avg_post_week, -avg_post_month, -gender, -endorser, -following, -avg_engage_post, -avg_comment_post, -narasumber_kol, -avatar) -> metric
+
+metric%>% scale%>% dist->dd #Compute distance
+
+#Assign ceral names to dist object
+rownames(kol_new)-> attributes(dd)$Labels
+
+#Compute classical MDS
+cmds<-cmdscale(dd,eig = T) # Set eig=T for later questions
+
+#Store representation in data frame
+cmds$points%>%
+as.data.frame()%>%
+rownames_to_column(var = 'narasumber_kol') -> df
+
+ggplot(df,aes(x=V1,y=V2,label= 'narasumber_kol'))+
+geom_text(size=2)
+
+df<-add_column(df, influencer=kol_new$narasumber_kol)
+
+ggplot(df,aes(x=V1,y=V2, label= influencer, col = factor(kol_new$post_type)))+
+geom_text(size=4)
+```
+
+<script src="https://hypothes.is/embed.js" async></script>
+
+## Referensi
+
+
+
+
