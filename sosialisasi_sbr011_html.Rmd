@@ -1,5 +1,6 @@
 ---
-title: "Tinjauan atas Pelaksanaan Pemasaran SBR011 melalui Key Opinion Leader (KOL)"
+title: "Tinjauan atas Pemasaran SBR011 melalui Key Opinion Leader (KOL)"
+always_allow_html: true
 ---
 
 
@@ -558,7 +559,6 @@ Skoring dilakukan terhadap setiap kata pada dataset dengan memanfaatkan library 
 
 ```{r, flow, fig.cap='Flow Diagram Analisis Sentimen Audiens SBR011', fig.align='center', out.width='100%', dev='png', dpi = 300}
 # 
-
 
 library(DiagrammeR)
 
