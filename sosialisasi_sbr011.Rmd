@@ -9,7 +9,7 @@ output:
     fig_width: 7
     fig_height: 6
     fig_caption: true
-    theme: simplex
+    theme: cerulean
     number_sections: false
   word_document:
     toc: no
