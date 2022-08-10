@@ -1,13 +1,12 @@
 name: "Tinjauan Penggunaan KOL SBR011"
 output_dir: "docs"
 navbar:
-  title: "Analisis"
+  title: "MyThought"
   left:
   - text: "Home"
     href: index.html
-  - text: "Tinjauan atas Pelaksanaan Pemasaran SBR011 melalui Key Opinion Leader"
+  - text: "Analisis"
     href: sosialisasi_sbr011_html.html
 output:
   html_document:
     toc: true
-    theme: darkly
