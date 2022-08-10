@@ -2,8 +2,8 @@
 title: "Tinjauan atas Pelaksanaan Pemasaran SBR011 melalui Key Opinion Leader (KOL)"
 author: "Dea Avega Editya"
 date: "6/17/2022"
+output_dir: "docs"
 output:
-  github_document: default
   bookdown::html_document2:
     toc: true
     toc_float: true
@@ -37,11 +37,11 @@ header-includes: \usepackage{float}
 ```{r setup, echo = FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, results='hide', warning=FALSE, fig.pos = "H", fig.align = "center")
 
-
-
 # 
 #
 ```
+
+
 
 ```{r echo=FALSE}
 library(bookdown)
