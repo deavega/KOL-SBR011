@@ -1,35 +1,5 @@
 ---
 title: "Tinjauan atas Pelaksanaan Pemasaran SBR011 melalui Key Opinion Leader (KOL)"
-author: "Dea Avega Editya"
-date: "6/17/2022"
-output_dir: "docs"
-output:
-  bookdown::html_document2:
-    toc: true
-    toc_float: true
-    fig_width: 7
-    fig_height: 6
-    fig_caption: true
-    theme: darkly
-    number_sections: false
-  word_document:
-    toc: no
-  pdf_document2: default
-  bookdown::pdf_document2:
-    toc: no
-    number_sections: no
-  pdf_document: default
-subtitle: dengan pendekatan data analytics
-affiliation: Direktorat Surat Utang Negara, Kementerian Keuangan
-organization: Direktorat Surat Utang Negara, Kementerian Keuangan RI
-mainfont: Cabin
-fontsize: 12pt
-linestretch: 1.5
-geometry: left=3cm,right=3cm,top=2cm,bottom=2cm
-documentclass: article
-classoption: a4paper
-bibliography: biblio.bib
-header-includes: \usepackage{float}
 ---
 
 

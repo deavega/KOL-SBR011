@@ -1,0 +1,4 @@
+---
+title: "Home"
+---
+Welcome to my blog post. I write my analysis on any Indonesian government policy.
