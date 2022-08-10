@@ -10,3 +10,4 @@ navbar:
 output:
   html_document:
     toc: true
+    downcute_theme: "chaos"
