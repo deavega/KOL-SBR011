@@ -1,4 +1,7 @@
 ---
 title: "Home"
 ---
-Welcome to my blog post. I write my analysis on any Indonesian government policy.
+Welcome to my blog post. 
+\newline
+
+I write my analysis on Indonesian government's policy.

@@ -3,6 +3,9 @@ title: "Tinjauan atas Pemasaran SBR011 melalui Key Opinion Leader (KOL)"
 author: "Dea Avega Editya"
 date: "6/17/2022"
 output:
+  pdf_document2: default
+  word_document:
+    toc: no
   bookdown::html_document2:
     toc: true
     toc_float: true
@@ -11,9 +14,6 @@ output:
     fig_caption: true
     number_sections: false
     theme: cerulean
-  word_document:
-    toc: no
-  pdf_document2: default
   bookdown::pdf_document2:
     toc: no
     number_sections: no
@@ -29,7 +29,6 @@ documentclass: article
 classoption: a4paper
 bibliography: biblio.bib
 header-includes: \usepackage{float}
-
 ---
 
 
@@ -446,7 +445,7 @@ Tahap awal yang dilakukan dalam proses ini adalah mendapatkan dataset komentar *
 
 Dari beberapa KOL yang menggunakan media sosial Instagram, diperoleh 3 nama yang memiliki komentar *followers* yang cukup banyak sehingga dapat digunakan untuk keperluan analisis sentimen. Ketiga nama tersebut adalah Vina Muliana, Morgan Oey dan Sigi Wimala. Dari beberapa komentar yang muncul, tidak semua mengomentari hal terkait investasi atau SBR011. Namun demikian, kata-kata tersebut tetap dimasukkan ke dalam dataset yang akan dianalisis lebih lanjut untuk melihat gambaran sentimen secara umum.
 
-Proses penyiapan dataset kemudian dilakukan dengan kegiatan pembersihan (*cleansing*) data dengan menyaring karakter selain huruf (*string*), diantaranya angka, simbol serta tanda baca. Selanjutnya, dilakukan penghapusan kata-kata yang tidak membentuk makna bahasa natural, seperti kata sambung dan tunjuk menggunakan daftar *stopwords* bahasa Indonesia dan bahasa Inggris yang terdapat dalam database NLTK dan ISO pada library Stopwords. Stopwords bahasa Inggris digunakan sebab beberapa komentar tersebut menggunakan kata dalam bahasa Inggris.   
+Proses penyiapan dataset kemudian dilanjutkan dengan kegiatan pembersihan (*cleansing*) data dengan menyaring karakter selain huruf (*string*), diantaranya angka, simbol serta tanda baca. Selanjutnya, dilakukan penghapusan kata-kata yang tidak membentuk makna bahasa natural, seperti kata sambung dan tunjuk menggunakan daftar *stopwords* bahasa Indonesia dan bahasa Inggris yang terdapat dalam database NLTK dan ISO pada library Stopwords. Stopwords bahasa Inggris digunakan sebab beberapa komentar tersebut menggunakan kata dalam bahasa Inggris.   
 
 Tahap selanjutnya dalam proses analisis sentimen ini adalah melakukan “stemming” atau “lemmatization”, yaitu mengubah suatu kata menjadi bentuk dasarnya untuk memudahkan dalam menganalisis kata yang unik. Daftar 10 kata unik yang paling sering muncul dalam komentar audiens KOL SBR011 dapat dilihat pada tabel \@ref(tab:words). Pengubahan kata ini menggunakan model training bahasa Indonesia dari library udpipe. Setelah dilakukan proses stemming, langkah berikutnya adalah memastikan bahwa kata unik yang muncul tersebut telah berformat baku. Proses ini memerlukan adanya penyesuaian terhadap kata-kata yang tidak baku, semisal mengubah nyidam menjadi mengidam dan ngelamar menjadi melamar.
 
@@ -580,7 +579,7 @@ kable(alpha_sentiment_unique %>% head(n = 10), caption = "Daftar 10 Kata Unik Te
 ```
 
 
-Setelah memastikan bahwa setiap kata sudah berbentuk baku, kemudian kumpulan kata tersebut disaring kembali untuk membuang kata-kata yang tidak memberikan makna inti, semisal kata sambung (dan, atau, adalah) dan kata tunjuk (ini dan itu). Dataset yang telah dibersihkan dapat dibawa ke dalam tahapan analisis selanjutnya yaitu pemberian skoring sentimen. 
+Setelah memastikan bahwa setiap kata sudah berbentuk baku, kemudian kumpulan kata baku tersebut direviu kembali untuk memastikan tidak terdapat kata-kata yang tidak membentuk makna. Dataset yang telah dibersihkan tersebut dapat dibawa ke dalam tahapan analisis selanjutnya yaitu pemberian skoring sentimen. 
 
 
 Skoring dilakukan terhadap setiap kata pada dataset dengan memanfaatkan library NRC yang membagi kategori sentimen menjadi 10 tipe yaitu; **anger, anticipation, disgust, fear, joy, negative, positive, sadness, surprise dan trust**. Dikarenakan library NRC hanya tersedia untuk kata dalam bahasa Inggris, perlu dilakukan translasi kata dalam dataset dari bahasa Indonesia menjadi bahasa Inggris. Proses alih bahasa dataset tersebut menggunakan library googleLanguageR. Hasil terjemahan kembali direviu untuk memastikan tidak terjadi perubahan makna dari kata aslinya di bahasa Indonesia. Bagan alur proses sentimen analisis secara lengkap sebagaimana ditunjukkan pada gambar \@ref(fig:flow)  
