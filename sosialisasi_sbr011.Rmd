@@ -1,5 +1,5 @@
 ---
-title: "Tinjauan atas Pelaksanaan Pemasaran SBR011 melalui Key Opinion Leader (KOL)"
+title: "Tinjauan atas Pemasaran SBR011 melalui Key Opinion Leader (KOL)"
 author: "Dea Avega Editya"
 date: "6/17/2022"
 output:
@@ -10,6 +10,7 @@ output:
     fig_height: 6
     fig_caption: true
     number_sections: false
+    theme: cerulean
   word_document:
     toc: no
   pdf_document2: default
@@ -28,6 +29,7 @@ documentclass: article
 classoption: a4paper
 bibliography: biblio.bib
 header-includes: \usepackage{float}
+
 ---
 
 
