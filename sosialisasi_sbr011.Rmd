@@ -9,7 +9,6 @@ output:
     fig_width: 7
     fig_height: 6
     fig_caption: true
-    theme: cerulean
     number_sections: false
   word_document:
     toc: no
@@ -744,6 +743,8 @@ df<-add_column(df, influencer=kol_new$narasumber_kol)
 ggplot(df,aes(x=V1,y=V2, label= influencer, col = factor(kol_new$post_type)))+
 geom_text(size=4)
 ```
+
+<script src="https://hypothes.is/embed.js" async></script>
 
 ## Referensi
 
