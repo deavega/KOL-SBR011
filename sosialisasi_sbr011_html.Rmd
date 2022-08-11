@@ -318,7 +318,7 @@ kol_new %>% dplyr::select(narasumber_kol, sbr_like, avg_like_post, media_type) %
 
 ```{r, echo = FALSE, eval = FALSE}
 # library("instaR")
-# my_oauth <- instaOAuth(app_id = '1191721091612558', app_secret='6099e676944050edf3f550a5bdcf6acc', scope = c("basic", "public_content"))
+# my_oauth <- instaOAuth(app_id = '1191721091612558', app_secret='', scope = c("basic", "public_content"))
 
 #kategorisasi KOL
 form_kol <- form_complete %>% dplyr::select(narasumber_kol, jumlah_like, jumlah_komentar) %>% drop_na() %>% mutate(jml_fol = c(96200, 13900, 109000, 488000, 227000, 11600, 375000, 104200), jml_post = c(561, 1472, 992, 363, 3055, 1176, 1847, 88), media_type = c(1, 1, 1, 1, 1, 1, 1, 2))
